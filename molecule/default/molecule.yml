@@ -1,0 +1,29 @@
+---
+role_name_check: 1
+dependency:
+  name: galaxy
+  options:
+    ignore-errors: true
+driver:
+  name: docker
+platforms:
+  - name: debian-instance
+    image: "${MOLECULE_DISTRO:-geerlingguy/docker-debian12-ansible:latest}"
+    command: ${MOLECULE_DOCKER_COMMAND:-""}
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    cgroupns_mode: host
+    privileged: true
+    pre_build_image: true
+provisioner:
+  name: ansible
+  playbooks:
+    converge: ${MOLECULE_PLAYBOOK:-converge.yml}
+  env:
+    # Workaround: molecule-docker playbooks use non-boolean conditionals
+    # incompatible with ansible-core >=2.19. Remove when molecule-docker
+    # is fixed (https://github.com/ansible-community/molecule-plugins/issues/311)
+    ANSIBLE_ALLOW_BROKEN_CONDITIONALS: "true"
+verifier:
+  name: testinfra
+  directory: tests

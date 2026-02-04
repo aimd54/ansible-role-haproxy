@@ -1,0 +1,31 @@
+---
+galaxy_info:
+  namespace: aimd54
+  role_name: haproxy
+  author: aimd
+  description: Ansible role to install and configure HAProxy on Debian
+  company: aimd
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+  galaxy_tags:
+    - haproxy
+    - loadbalancer
+    - proxy
+    - reverseproxy
+    - ssl
+    - networking
+  standalone: true
+
+dependencies: []
+
+collections:
+  - ansible.posix

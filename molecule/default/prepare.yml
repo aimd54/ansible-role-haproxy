@@ -1,0 +1,49 @@
+---
+- name: Prepare
+  hosts: all
+  become: true
+  tasks:
+    - name: Install test dependencies
+      ansible.builtin.apt:
+        name:
+          - python3
+          - openssl
+          - socat
+        state: present
+        update_cache: true
+
+    - name: Create SSL directory
+      ansible.builtin.file:
+        path: /etc/haproxy/ssl
+        state: directory
+        mode: "0750"
+
+    - name: Generate self-signed SSL certificate
+      ansible.builtin.command: >
+        openssl req -x509 -nodes -newkey rsa:2048
+        -keyout /etc/haproxy/ssl/test.pem
+        -out /etc/haproxy/ssl/test.pem
+        -days 1
+        -subj "/CN=localhost"
+      args:
+        creates: /etc/haproxy/ssl/test.pem
+
+    - name: Set SSL cert permissions
+      ansible.builtin.file:
+        path: /etc/haproxy/ssl/test.pem
+        mode: "0640"
+
+    - name: Start HTTP backend on port 8080
+      ansible.builtin.shell: |
+        nohup python3 -m http.server 8080 --directory /tmp </dev/null >/dev/null 2>&1 &
+      changed_when: true
+
+    - name: Start HTTP backend on port 8081
+      ansible.builtin.shell: |
+        nohup python3 -m http.server 8081 --directory /tmp </dev/null >/dev/null 2>&1 &
+      changed_when: true
+
+    - name: Start HTTP backend on port 9000 for listen section
+      ansible.builtin.shell: |
+        nohup python3 -m http.server 9000 --directory /tmp </dev/null >/dev/null 2>&1 &
+      changed_when: true

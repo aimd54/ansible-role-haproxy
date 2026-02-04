@@ -1,0 +1,7 @@
+# {{ ansible_managed }}
+# HAProxy rsyslog configuration
+
+$AddUnixListenSocket /var/lib/haproxy/dev/log
+
+if $programname startswith 'haproxy' then {{ haproxy_log_file }}
+& stop

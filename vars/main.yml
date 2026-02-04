@@ -1,0 +1,21 @@
+---
+# Variables specific to the role (not intended for user override)
+
+# Debian / Ubuntu
+haproxy_apt_prerequisites:
+  - software-properties-common
+  - apt-transport-https
+
+haproxy_apt_keyring_url: "https://haproxy.debian.net/haproxy-archive-keyring.gpg"
+haproxy_apt_keyring_path: /etc/apt/keyrings/haproxy-archive-keyring.gpg
+haproxy_apt_repository: >-
+  deb [signed-by=/etc/apt/keyrings/haproxy-archive-keyring.gpg]
+  https://haproxy.debian.net
+  {{ ansible_facts['distribution_release'] }}-backports-{{ haproxy_version }}
+  main
+haproxy_apt_packages:
+  - haproxy
+
+haproxy_apt_tool_packages:
+  - socat
+  - hatop

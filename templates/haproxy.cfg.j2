@@ -1,0 +1,113 @@
+# {{ ansible_managed }}
+
+global
+{% for option in haproxy_global_options %}
+    {{ option }}
+{% endfor %}
+
+defaults
+{% for option in haproxy_defaults_options %}
+    {{ option }}
+{% endfor %}
+
+{% for userlist in haproxy_userlists %}
+userlist {{ userlist.name }}
+{% for option in userlist.options %}
+    {{ option }}
+{% endfor %}
+
+{% endfor %}
+{% for cache in haproxy_caches %}
+cache {{ cache.name }}
+{% for option in cache.options %}
+    {{ option }}
+{% endfor %}
+
+{% endfor %}
+{% for ring in haproxy_rings %}
+ring {{ ring.name }}
+{% for option in ring.options %}
+    {{ option }}
+{% endfor %}
+
+{% endfor %}
+{% for crt_store in haproxy_crt_stores %}
+crt-store {{ crt_store.name }}
+{% for option in crt_store.options %}
+    {{ option }}
+{% endfor %}
+
+{% endfor %}
+{% for fcgi_app in haproxy_fcgi_apps %}
+fcgi-app {{ fcgi_app.name }}
+{% for option in fcgi_app.options %}
+    {{ option }}
+{% endfor %}
+
+{% endfor %}
+{% for program in haproxy_programs %}
+program {{ program.name }}
+{% for option in program.options %}
+    {{ option }}
+{% endfor %}
+
+{% endfor %}
+{% for http_error in haproxy_http_errors %}
+http-errors {{ http_error.name }}
+{% for option in http_error.options %}
+    {{ option }}
+{% endfor %}
+
+{% endfor %}
+{% for frontend in haproxy_frontends %}
+frontend {{ frontend.name }}
+{% for option in frontend.options %}
+    {{ option }}
+{% endfor %}
+
+{% endfor %}
+{% for backend in haproxy_backends %}
+backend {{ backend.name }}
+{% for option in backend.options %}
+    {{ option }}
+{% endfor %}
+
+{% endfor %}
+{% for listen in haproxy_listen_sections %}
+listen {{ listen.name }}
+{% for option in listen.options %}
+    {{ option }}
+{% endfor %}
+
+{% endfor %}
+{% for log_forward in haproxy_log_forwards %}
+log-forward {{ log_forward.name }}
+{% for option in log_forward.options %}
+    {{ option }}
+{% endfor %}
+
+{% endfor %}
+{% for resolver in haproxy_resolvers %}
+resolvers {{ resolver.name }}
+{% for option in resolver.options %}
+    {{ option }}
+{% endfor %}
+
+{% endfor %}
+{% for peer in haproxy_peers %}
+peers {{ peer.name }}
+{% for option in peer.options %}
+    {{ option }}
+{% endfor %}
+
+{% endfor %}
+{% for mailer in haproxy_mailers %}
+mailers {{ mailer.name }}
+{% for option in mailer.options %}
+    {{ option }}
+{% endfor %}
+
+{% endfor %}
+{% if haproxy_extra_config is defined and haproxy_extra_config %}
+{{ haproxy_extra_config }}
+{% endif %}

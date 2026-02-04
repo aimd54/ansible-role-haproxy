@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+*.retry
+.idea/
+.vscode/
+*.swp
+*~
+.pytest_cache/
+.tox/
+.coverage
+.DS_Store
+.ansible/

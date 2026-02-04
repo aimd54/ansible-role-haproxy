@@ -1,0 +1,11 @@
+# {{ ansible_managed }}
+{{ haproxy_log_file }} {
+    {{ haproxy_logrotate_frequency }}
+    rotate {{ haproxy_logrotate_rotate }}
+{% for option in haproxy_logrotate_options %}
+    {{ option }}
+{% endfor %}
+    postrotate
+        /usr/lib/rsyslog/rsyslog-rotate
+    endscript
+}

@@ -1,0 +1,262 @@
+---
+# =========================================================================
+# Installation
+# =========================================================================
+
+- name: Install HAProxy on Debian
+  become: true
+  block:
+    - name: Install prerequisite packages
+      ansible.builtin.apt:
+        name: "{{ haproxy_apt_prerequisites }}"
+        state: present
+        update_cache: true
+
+    - name: Ensure keyrings directory exists
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: Download HAProxy archive keyring
+      ansible.builtin.get_url:
+        url: "{{ haproxy_apt_keyring_url }}"
+        dest: "{{ haproxy_apt_keyring_path }}"
+        mode: "0644"
+
+    - name: Add HAProxy official APT repository
+      ansible.builtin.copy:
+        content: "{{ haproxy_apt_repository }}\n"
+        dest: /etc/apt/sources.list.d/haproxy.list
+        mode: "0644"
+
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+
+    - name: Install HAProxy
+      ansible.builtin.apt:
+        name: "haproxy={{ haproxy_version }}.*"
+        state: present
+      notify: Restart HAProxy
+
+# =========================================================================
+# Management tools (socat, hatop)
+# =========================================================================
+
+- name: Install HAProxy management tools
+  when: haproxy_install_tools
+  become: true
+  ansible.builtin.apt:
+    name: "{{ haproxy_apt_tool_packages }}"
+    state: present
+
+# =========================================================================
+# SSL certificates
+# =========================================================================
+
+- name: Manage SSL certificates
+  when: haproxy_ssl_certificates | length > 0
+  become: true
+  block:
+    - name: Ensure SSL directory exists
+      ansible.builtin.file:
+        path: "{{ haproxy_ssl_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0750"
+
+    - name: Deploy SSL certificates
+      ansible.builtin.copy:
+        content: "{{ item.content }}"
+        dest: "{{ haproxy_ssl_dir }}/{{ item.name }}"
+        owner: root
+        group: root
+        mode: "{{ item.mode | default('0640') }}"
+      loop: "{{ haproxy_ssl_certificates }}"
+      loop_control:
+        label: "{{ item.name }}"
+      no_log: true
+      notify: Reload HAProxy
+
+# =========================================================================
+# DH parameters
+# =========================================================================
+
+- name: Generate DH parameters
+  when: haproxy_dhparam_enable
+  become: true
+  block:
+    - name: Ensure SSL directory exists for DH params
+      ansible.builtin.file:
+        path: "{{ haproxy_dhparam_path | dirname }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0750"
+
+    - name: Generate DH parameters file
+      ansible.builtin.command: >
+        openssl dhparam -out {{ haproxy_dhparam_path }} {{ haproxy_dhparam_size }}
+      args:
+        creates: "{{ haproxy_dhparam_path }}"
+
+    - name: Set DH parameters permissions
+      ansible.builtin.file:
+        path: "{{ haproxy_dhparam_path }}"
+        owner: root
+        group: root
+        mode: "0640"
+
+# =========================================================================
+# Custom error pages
+# =========================================================================
+
+- name: Deploy custom error pages
+  when: haproxy_custom_error_pages | length > 0
+  become: true
+  block:
+    - name: Ensure errors directory exists
+      ansible.builtin.file:
+        path: "{{ haproxy_errors_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Deploy custom error page files
+      ansible.builtin.copy:
+        content: "{{ item.content }}"
+        dest: "{{ haproxy_errors_dir }}/{{ item.code }}.http"
+        owner: root
+        group: root
+        mode: "0644"
+      loop: "{{ haproxy_custom_error_pages }}"
+      loop_control:
+        label: "{{ item.code }}"
+      notify: Reload HAProxy
+
+# =========================================================================
+# Configuration
+# =========================================================================
+
+- name: Configure HAProxy
+  when: haproxy_manage_config
+  become: true
+  block:
+    - name: Deploy haproxy.cfg from template
+      ansible.builtin.template:
+        src: "{{ haproxy_config_template }}"
+        dest: "{{ haproxy_config_path }}"
+        owner: root
+        group: root
+        mode: "0644"
+        backup: "{{ haproxy_config_backup }}"
+        validate: "{{ 'haproxy -c -f %s' if haproxy_config_validate else omit }}"
+      notify: Reload HAProxy
+
+# =========================================================================
+# Syslog / rsyslog
+# =========================================================================
+
+- name: Configure rsyslog for HAProxy
+  when: haproxy_rsyslog_enable
+  become: true
+  block:
+    - name: Install rsyslog
+      ansible.builtin.apt:
+        name: rsyslog
+        state: present
+
+    - name: Ensure chroot log directory exists
+      ansible.builtin.file:
+        path: /var/lib/haproxy/dev
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Deploy rsyslog configuration for HAProxy
+      ansible.builtin.template:
+        src: haproxy-rsyslog.conf.j2
+        dest: "{{ haproxy_rsyslog_config_path }}"
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart rsyslog
+
+    - name: Ensure rsyslog is started and enabled
+      ansible.builtin.service:
+        name: rsyslog
+        state: started
+        enabled: true
+
+# =========================================================================
+# Logrotate
+# =========================================================================
+
+- name: Deploy logrotate configuration for HAProxy
+  when: haproxy_logrotate_enable
+  become: true
+  ansible.builtin.template:
+    src: haproxy-logrotate.j2
+    dest: "{{ haproxy_logrotate_config_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+# =========================================================================
+# Kernel tuning (sysctl)
+# =========================================================================
+
+- name: Apply sysctl settings for HAProxy
+  when: haproxy_sysctl_enable
+  become: true
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    sysctl_set: true
+    state: present
+    reload: true
+  loop: "{{ haproxy_sysctl_settings | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}={{ item.value }}"
+
+# =========================================================================
+# Systemd overrides
+# =========================================================================
+
+- name: Configure systemd override for HAProxy
+  when: haproxy_systemd_override_enable
+  become: true
+  block:
+    - name: Ensure systemd override directory exists
+      ansible.builtin.file:
+        path: /etc/systemd/system/{{ haproxy_service_name }}.service.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Deploy systemd override file
+      ansible.builtin.template:
+        src: haproxy-systemd-override.conf.j2
+        dest: /etc/systemd/system/{{ haproxy_service_name }}.service.d/override.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify:
+        - Reload systemd
+        - Restart HAProxy
+
+# =========================================================================
+# Service management
+# =========================================================================
+
+- name: Enable and start HAProxy service
+  become: true
+  ansible.builtin.service:
+    name: "{{ haproxy_service_name }}"
+    state: "{{ haproxy_service_state }}"
+    enabled: "{{ haproxy_service_enabled }}"

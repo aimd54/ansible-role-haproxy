@@ -1,0 +1,187 @@
+---
+# HAProxy version branch for the official PPA (e.g. "3.2", "2.8")
+haproxy_version: "3.2"
+
+# Whether the role manages /etc/haproxy/haproxy.cfg
+haproxy_manage_config: true
+
+# Path to the HAProxy configuration file
+haproxy_config_path: /etc/haproxy/haproxy.cfg
+
+# Template to use for haproxy.cfg (override to use your own)
+haproxy_config_template: haproxy.cfg.j2
+
+# Validate configuration before applying
+haproxy_config_validate: true
+
+# Back up the previous config file before overwriting
+haproxy_config_backup: true
+
+# Service settings
+haproxy_service_name: haproxy
+haproxy_service_enabled: true
+haproxy_service_state: started
+
+# ---------------------------------------------------------------------------
+# Raw directive lists — every entry maps directly to a HAProxy config line.
+# This approach is future-proof: any current or future HAProxy directive works
+# without modifying the role or template.
+# ---------------------------------------------------------------------------
+
+haproxy_global_options:
+  - log /dev/log local0
+  - log /dev/log local1 notice
+  - chroot /var/lib/haproxy
+  - stats socket /run/haproxy/admin.sock mode 660 level admin
+  - stats timeout 30s
+  - user haproxy
+  - group haproxy
+  - daemon
+  - maxconn 2048
+
+haproxy_defaults_options:
+  - log global
+  - mode http
+  - option httplog
+  - option dontlognull
+  - option forwardfor
+  - option http-server-close
+  - timeout connect 5000ms
+  - timeout client 50000ms
+  - timeout server 50000ms
+  - errorfile 400 /etc/haproxy/errors/400.http
+  - errorfile 403 /etc/haproxy/errors/403.http
+  - errorfile 408 /etc/haproxy/errors/408.http
+  - errorfile 500 /etc/haproxy/errors/500.http
+  - errorfile 502 /etc/haproxy/errors/502.http
+  - errorfile 503 /etc/haproxy/errors/503.http
+  - errorfile 504 /etc/haproxy/errors/504.http
+
+# Named sections — each item is a dict with 'name' and 'options' (list of raw lines)
+# Example:
+#   haproxy_frontends:
+#     - name: http-in
+#       options:
+#         - bind *:80
+#         - default_backend webservers
+haproxy_frontends: []
+haproxy_backends: []
+haproxy_listen_sections: []
+haproxy_userlists: []
+haproxy_resolvers: []
+haproxy_peers: []
+haproxy_mailers: []
+haproxy_caches: []
+haproxy_programs: []
+haproxy_http_errors: []
+haproxy_rings: []
+haproxy_log_forwards: []
+haproxy_fcgi_apps: []
+haproxy_crt_stores: []
+
+# Raw text appended verbatim at the end of haproxy.cfg
+haproxy_extra_config: ""
+
+# ---------------------------------------------------------------------------
+# Syslog / rsyslog configuration
+# ---------------------------------------------------------------------------
+
+# Whether to deploy an rsyslog config for HAProxy
+haproxy_rsyslog_enable: true
+
+# Path to the rsyslog config snippet
+haproxy_rsyslog_config_path: /etc/rsyslog.d/49-haproxy.conf
+
+# Path to the HAProxy log file
+haproxy_log_file: /var/log/haproxy.log
+
+# ---------------------------------------------------------------------------
+# Logrotate
+# ---------------------------------------------------------------------------
+
+# Whether to deploy a logrotate config for HAProxy logs
+haproxy_logrotate_enable: true
+
+# Logrotate config path
+haproxy_logrotate_config_path: /etc/logrotate.d/haproxy
+
+# Logrotate settings
+haproxy_logrotate_frequency: daily
+haproxy_logrotate_rotate: 14
+haproxy_logrotate_options:
+  - missingok
+  - notifempty
+  - compress
+  - delaycompress
+  - sharedscripts
+
+# ---------------------------------------------------------------------------
+# Kernel tuning (sysctl)
+# ---------------------------------------------------------------------------
+
+# Whether to apply sysctl settings for HAProxy
+haproxy_sysctl_enable: true
+
+# Dict of sysctl key/values to set
+haproxy_sysctl_settings:
+  net.core.somaxconn: 4096
+  net.ipv4.ip_nonlocal_bind: 1
+  net.ipv4.tcp_tw_reuse: 1
+
+# ---------------------------------------------------------------------------
+# Systemd overrides
+# ---------------------------------------------------------------------------
+
+# Whether to deploy a systemd override for the HAProxy unit
+haproxy_systemd_override_enable: true
+
+# List of raw lines for the [Service] section of the override
+haproxy_systemd_override_options:
+  - LimitNOFILE=65536
+
+# ---------------------------------------------------------------------------
+# SSL certificate deployment
+# ---------------------------------------------------------------------------
+
+# List of SSL certificates to deploy
+# Each item is a dict with:
+#   - name: filename (deployed to haproxy_ssl_dir/<name>)
+#   - content: PEM content (private key + certificate)
+#   - mode: (optional) file mode, default 0640
+haproxy_ssl_certificates: []
+
+# Directory for SSL certificates
+haproxy_ssl_dir: /etc/haproxy/ssl
+
+# ---------------------------------------------------------------------------
+# Custom error pages
+# ---------------------------------------------------------------------------
+
+# List of custom error pages to deploy
+# Each item is a dict with:
+#   - code: HTTP status code (e.g. 503)
+#   - content: raw HTTP response content
+haproxy_custom_error_pages: []
+
+# Directory for error pages
+haproxy_errors_dir: /etc/haproxy/errors
+
+# ---------------------------------------------------------------------------
+# HAProxy management tools
+# ---------------------------------------------------------------------------
+
+# Whether to install hatop and socat
+haproxy_install_tools: true
+
+# ---------------------------------------------------------------------------
+# DH parameters
+# ---------------------------------------------------------------------------
+
+# Whether to generate DH parameters for SSL
+haproxy_dhparam_enable: false
+
+# DH parameters file path
+haproxy_dhparam_path: /etc/haproxy/ssl/dhparam.pem
+
+# DH parameters key size
+haproxy_dhparam_size: 2048

@@ -1,0 +1,172 @@
+---
+- name: Converge
+  hosts: all
+
+  pre_tasks:
+    - name: Wait for systemd to complete initialization.  # noqa command-instead-of-module
+      ansible.builtin.command: systemctl is-system-running
+      register: systemctl_status
+      until: >
+        'running' in systemctl_status.stdout or
+        'degraded' in systemctl_status.stdout
+      retries: 30
+      delay: 5
+      when: ansible_facts['service_mgr'] == 'systemd'
+      changed_when: false
+      failed_when: systemctl_status.rc > 1
+
+  tasks:
+    - name: Include haproxy role
+      ansible.builtin.include_role:
+        name: aimd54.haproxy
+      vars:
+        haproxy_global_options:
+          - log /dev/log local0
+          - log /dev/log local1 notice
+          - chroot /var/lib/haproxy
+          - stats socket /run/haproxy/admin.sock mode 660 level admin
+          - stats timeout 30s
+          - user haproxy
+          - group haproxy
+          - daemon
+          - maxconn 4096
+          - ssl-default-bind-ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256
+          - ssl-default-bind-options ssl-min-ver TLSv1.2
+
+        haproxy_defaults_options:
+          - log global
+          - mode http
+          - option httplog
+          - option dontlognull
+          - option forwardfor
+          - option http-server-close
+          - timeout connect 5000ms
+          - timeout client 50000ms
+          - timeout server 50000ms
+          - errorfile 400 /etc/haproxy/errors/400.http
+          - errorfile 403 /etc/haproxy/errors/403.http
+          - errorfile 408 /etc/haproxy/errors/408.http
+          - errorfile 500 /etc/haproxy/errors/500.http
+          - errorfile 502 /etc/haproxy/errors/502.http
+          - errorfile 503 /etc/haproxy/errors/503.http
+          - errorfile 504 /etc/haproxy/errors/504.http
+
+        haproxy_frontends:
+          - name: http-in
+            options:
+              - bind *:80
+              - default_backend webservers
+          - name: https-in
+            options:
+              - bind *:443 ssl crt /etc/haproxy/ssl/test.pem
+              - http-request set-header X-Forwarded-Proto https
+              - default_backend webservers
+
+        haproxy_backends:
+          - name: webservers
+            options:
+              - balance roundrobin
+              - option httpchk GET /
+              - server web1 127.0.0.1:8080 check
+              - server web2 127.0.0.1:8081 check
+          - name: api-servers
+            options:
+              - balance leastconn
+              - option httpchk GET /
+              - server api1 127.0.0.1:8080 check
+
+        haproxy_listen_sections:
+          - name: stats
+            options:
+              - bind *:8404
+              - stats enable
+              - stats uri /stats
+              - stats refresh 10s
+
+        haproxy_userlists:
+          - name: myusers
+            options:
+              - group admins users admin
+              - user admin insecure-password adminpass
+              - user viewer insecure-password viewerpass
+
+        haproxy_caches:
+          - name: mycache
+            options:
+              - total-max-size 64
+              - max-object-size 10000
+              - max-age 30
+
+        haproxy_http_errors:
+          - name: custom-errors
+            options:
+              - errorfile 503 /etc/haproxy/errors/503.http
+
+        haproxy_rings:
+          - name: myring
+            options:
+              - description "Main logging ring"
+              - format rfc5424
+              - maxlen 1200
+              - size 32764
+
+        haproxy_log_forwards:
+          - name: mylogforward
+            options:
+              - dgram-bind *:1514
+              - log ring@myring local0
+
+        haproxy_resolvers:
+          - name: mydns
+            options:
+              - nameserver dns1 127.0.0.1:53
+              - resolve_retries 3
+              - timeout resolve 1s
+              - timeout retry 1s
+              - hold valid 10s
+
+        haproxy_peers:
+          - name: mypeers
+            options:
+              - peer haproxy1 127.0.0.1:10000
+
+        haproxy_mailers:
+          - name: mymailers
+            options:
+              - mailer smtp1 127.0.0.1:25
+
+        haproxy_extra_config: |
+          # Custom extra configuration
+          # This tests the haproxy_extra_config variable
+
+        # New features
+        haproxy_config_backup: true
+
+        haproxy_rsyslog_enable: true
+        haproxy_log_file: /var/log/haproxy.log
+
+        haproxy_logrotate_enable: true
+        haproxy_logrotate_frequency: daily
+        haproxy_logrotate_rotate: 14
+
+        haproxy_sysctl_enable: true
+        haproxy_sysctl_settings:
+          net.core.somaxconn: 4096
+          net.ipv4.ip_nonlocal_bind: 1
+
+        haproxy_systemd_override_enable: true
+        haproxy_systemd_override_options:
+          - LimitNOFILE=65536
+
+        haproxy_install_tools: true
+
+        haproxy_dhparam_enable: true
+        haproxy_dhparam_size: 1024
+
+        haproxy_custom_error_pages:
+          - code: maintenance
+            content: |
+              HTTP/1.1 503 Service Unavailable
+              Content-Type: text/html
+
+              <html><body><h1>Under Maintenance</h1></body></html>

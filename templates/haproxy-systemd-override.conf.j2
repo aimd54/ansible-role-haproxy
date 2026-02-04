@@ -1,0 +1,5 @@
+# {{ ansible_managed }}
+[Service]
+{% for option in haproxy_systemd_override_options %}
+{{ option }}
+{% endfor %}
